@@ -5636,24 +5636,6 @@ test.each([
       codex: { enabled: false, derivedFromProviderId: null },
     },
   ],
-  [
-    "derived",
-    "claude",
-    "zai",
-    {
-      claude: { enabled: true, derivedFromProviderId: null },
-      zai: { enabled: true, derivedFromProviderId: "claude" },
-    },
-  ],
-  [
-    "outside importable allowlist",
-    "claude",
-    "gemini",
-    {
-      claude: { enabled: true, derivedFromProviderId: null },
-      gemini: { enabled: true, derivedFromProviderId: null },
-    },
-  ],
 ])(
   "listImportablePersistedAgents skips %s providers in fan-out",
   async (_reason, includedProvider, skippedProvider, providerDefinitions) => {
@@ -5672,6 +5654,25 @@ test.each([
     expect(result.map((d) => d.provider)).toEqual([includedProvider]);
   },
 );
+
+test("listImportablePersistedAgents includes derived providers that list persisted agents", async () => {
+  const claudeClient = new RecordingPersistedAgentsClient("claude");
+  const ompClient = new RecordingPersistedAgentsClient("omp");
+  const manager = new AgentManager({
+    clients: { claude: claudeClient, omp: ompClient },
+    providerDefinitions: {
+      claude: { enabled: true, derivedFromProviderId: null },
+      omp: { enabled: true, derivedFromProviderId: "pi" },
+    },
+    logger,
+  });
+
+  const result = await manager.listImportablePersistedAgents();
+
+  expect(claudeClient.calls).toBe(1);
+  expect(ompClient.calls).toBe(1);
+  expect(result.map((d) => d.provider).sort()).toEqual(["claude", "omp"]);
+});
 
 test("listImportablePersistedAgents narrows to the providerFilter when supplied", async () => {
   const claudeClient = new RecordingPersistedAgentsClient("claude");
